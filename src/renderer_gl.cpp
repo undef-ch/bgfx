@@ -1393,6 +1393,30 @@ namespace bgfx { namespace gl
 	};
 #endif // BGFX_CONFIG_USE_OVR
 
+
+#if BGFX_CONFIG_USE_OPEN_HMD
+	class VRImplOpenHMDGL : public VRImplOpenHMD
+	{
+	public:
+		VRImplOpenHMDGL();
+
+		virtual bool createSwapChain(const VRDesc& _desc, int _msaaSamples, int _mirrorWidth, int _mirrorHeight) BX_OVERRIDE;
+		virtual void destroySwapChain() BX_OVERRIDE;
+		virtual void destroyMirror() BX_OVERRIDE;
+		virtual void makeRenderTargetActive(const VRDesc& _desc) BX_OVERRIDE;
+		virtual bool submitSwapChain(const VRDesc& _desc) BX_OVERRIDE;
+
+	private:
+		GLuint m_eyeTarget[4];
+		GLuint m_depthRbo;
+		GLuint m_msaaTexture;
+		GLuint m_msaaTarget;
+		GLuint m_mirrorFbo;
+		GLint m_mirrorWidth;
+		GLint m_mirrorHeight;
+	};
+#endif // BGFX_CONFIG_USE_OVR
+
 	struct VendorId
 	{
 		const char* name;
@@ -1457,6 +1481,9 @@ namespace bgfx { namespace gl
 			// Must be after context is initialized?!
 			VRImplI* vrImpl = NULL;
 #if BGFX_CONFIG_USE_OVR
+			vrImpl = &m_ovrRender;
+#endif
+#if BGFX_CONFIG_USE_OPEN_HMD
 			vrImpl = &m_ovrRender;
 #endif
 			m_ovr.init(vrImpl);
@@ -3063,11 +3090,21 @@ namespace bgfx { namespace gl
 				m_ovr.postReset(msaaSamples, m_resolution.m_width, m_resolution.m_height);
 			}
 #endif // BGFX_CONFIG_USE_OVR
+#if BGFX_CONFIG_USE_OPEN_HMD
+			if (m_resolution.m_flags & (BGFX_RESET_HMD|BGFX_RESET_HMD_DEBUG) )
+			{
+				const uint32_t msaaSamples = 1 << ( (m_resolution.m_flags&BGFX_RESET_MSAA_MASK) >> BGFX_RESET_MSAA_SHIFT);
+				m_ovr.postReset(msaaSamples, m_resolution.m_width, m_resolution.m_height);
+			}
+#endif // BGFX_CONFIG_USE_OVR
 		}
 
 		void ovrPreReset()
 		{
 #if BGFX_CONFIG_USE_OVR
+			m_ovr.preReset();
+#endif // BGFX_CONFIG_USE_OVR
+#if BGFX_CONFIG_USE_OPEN_HMD
 			m_ovr.preReset();
 #endif // BGFX_CONFIG_USE_OVR
 		}
@@ -3498,6 +3535,9 @@ namespace bgfx { namespace gl
 #if BGFX_CONFIG_USE_OVR
 		VRImplOVRGL m_ovrRender;
 #endif // BGFX_CONFIG_USE_OVR
+#if BGFX_CONFIG_USE_OPEN_HMD
+		VRImplOpenHMDGL m_ovrRender;
+#endif // BGFX_CONFIG_USE_OVR
 	};
 
 	RendererContextGL* s_renderGL;
@@ -3774,6 +3814,80 @@ namespace bgfx { namespace gl
 			GL_CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, 0) );
 		}
 
+		return true;
+	}
+
+#endif // BGFX_CONFIG_USE_OVR
+
+
+#if BGFX_CONFIG_USE_OPEN_HMD
+
+	VRImplOpenHMDGL::VRImplOpenHMDGL()
+		: m_depthRbo(0)
+		, m_msaaTexture(0)
+		, m_msaaTarget(0)
+	{
+		memset(&m_eyeTarget, 0, sizeof(m_eyeTarget) );
+	}
+
+	static void setDefaultSamplerState()
+	{
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR) );
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR) );
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE) );
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE) );
+	}
+
+	bool VRImplOpenHMDGL::createSwapChain(const VRDesc& _desc, int _msaaSamples, int _mirrorWidth, int _mirrorHeight)
+	{
+		const GLsizei width = _desc.m_eyeSize[0].m_w + _desc.m_eyeSize[1].m_w;
+		const GLsizei height = bx::uint16_max(_desc.m_eyeSize[0].m_h, _desc.m_eyeSize[1].m_h);
+
+
+		// MSAA
+
+		GL_CHECK(glGenTextures(1, &m_msaaTexture) );
+		GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture) );
+		GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples, GL_RGBA, width, height, GL_TRUE) );
+		setDefaultSamplerState();
+
+		GL_CHECK(glGenFramebuffers(1, &m_msaaTarget) );
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_msaaTarget) );
+		GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture, 0) );
+		if (0 != m_depthRbo)
+		{
+			GL_CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo) );
+		}
+		frameBufferValidate();
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0) );
+		return true;
+	}
+
+	void VRImplOpenHMDGL::destroySwapChain()
+	{
+
+	}
+
+	void VRImplOpenHMDGL::destroyMirror()
+	{
+
+	}
+
+	void VRImplOpenHMDGL::makeRenderTargetActive(const VRDesc& /*_desc*/)
+	{
+		s_renderGL->m_currentFbo = m_msaaTarget;;
+	}
+
+	bool VRImplOpenHMDGL::submitSwapChain(const VRDesc& _desc)
+	{
+		const uint32_t width = _desc.m_eyeSize[0].m_w+_desc.m_eyeSize[1].m_w;
+		const uint32_t height = _desc.m_eyeSize[0].m_h;
+
+		// resolve MSAA
+		GL_CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, m_msaaTarget) );
+		//GL_CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_eyeTarget[index]) );
+		GL_CHECK(glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST) );
+		GL_CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, 0) );
 		return true;
 	}
 

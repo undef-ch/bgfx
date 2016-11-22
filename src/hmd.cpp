@@ -7,6 +7,9 @@
 
 namespace bgfx
 {
+
+
+
 	VR::VR()
 		: m_impl(NULL)
 		, m_framesUntilReconnect(0)

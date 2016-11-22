@@ -109,6 +109,7 @@ typedef uint64_t GLuint64;
 #include "renderer.h"
 #include "hmd.h"
 #include "hmd_openvr.h"
+#include "hmd_openhmd.h"
 #include "debug_renderdoc.h"
 
 #ifndef GL_LUMINANCE

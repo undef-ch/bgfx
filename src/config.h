@@ -165,6 +165,11 @@
 #	define BGFX_CONFIG_USE_OVR 0
 #endif // BGFX_CONFIG_USE_OVR
 
+/// Enable OpenHMD integration.
+#ifndef BGFX_CONFIG_USE_OPEN_HMD
+#	define BGFX_CONFIG_USE_OPEN_HMD 0
+#endif // BGFX_CONFIG_USE_OPEN_HMD
+
 /// Enable nVidia PerfHUD integration.
 #ifndef BGFX_CONFIG_DEBUG_PERFHUD
 #	define BGFX_CONFIG_DEBUG_PERFHUD 0
