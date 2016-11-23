@@ -82,8 +82,6 @@ void bgfx::VRImplOpenHMD::connect(bgfx::VRDesc *_desc){
 			//memcpy(&_desc->m_eyeFov[eye], &hmdDesc.DefaultEyeFov[eye], sizeof(_desc->m_eyeFov[eye]));
 
 	}
-
-
 }
 
 void bgfx::VRImplOpenHMD::disconnect()
@@ -109,10 +107,17 @@ bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
 	float quat[4];
 	ohmd_device_getf(device, OHMD_ROTATION_QUAT, quat);
 
+	// invert quat
+	quat[0] = quat[0];
+	quat[1] = quat[1];
+	quat[2] = quat[2];
+
 	//print_infof(device, "rotation quat:", 4, OHMD_ROTATION_QUAT);
 	for (int eye = 0; eye < 2; ++eye){
 
 		HMD::Eye& hmdEye = _hmd.eye[eye];
+
+
 
 		hmdEye.rotation[0] = quat[0];
 		hmdEye.rotation[1] = quat[1];

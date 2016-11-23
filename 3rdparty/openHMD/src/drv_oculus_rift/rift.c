@@ -274,12 +274,12 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 	set_coordinate_frame(priv, priv->coordinate_frame);
 
 	// Turn the screens on
-	if (desc->revision == REV_CV1)
-	{
-		size = encode_enable_components(buf, true, true);
-		if (send_feature_report(priv, buf, size) == -1)
-			LOGE("error turning the screens on");
-	}
+//	if (desc->revision == REV_CV1)
+//	{
+//		size = encode_enable_components(buf, true, true);
+//		if (send_feature_report(priv, buf, size) == -1)
+//			LOGE("error turning the screens on");
+//	}
 
 	// set keep alive interval to n seconds
 	pkt_keep_alive keep_alive = { 0, KEEP_ALIVE_VALUE };
