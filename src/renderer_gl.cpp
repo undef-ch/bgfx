@@ -4013,9 +4013,9 @@ static const char* vrImplOpenHMDGeom = R"(
 									   invariant out vec2 _LensCenter;
 									   invariant out vec2 _Scale;
 
-									   uniform float DistortionOffset = 0; //0.151976;
-									   uniform vec2 Scale = vec2(0.25,0.5);
-									   uniform float DistortionScale = 1;
+									   uniform float DistortionOffset = 0.03;//0.151976;
+									   uniform vec2 Scale = vec2(0.25,0.5);//vec2(0.25,0.5);
+									   uniform float DistortionScale = 1.45;//1.45;//1.5;//1.0
 
 
 									   void emitQuad(vec4 screen, vec4 coords)

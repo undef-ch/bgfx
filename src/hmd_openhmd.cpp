@@ -114,7 +114,7 @@ bool bgfx::VRImplOpenHMD::isConnected() const
 	return true;
 }
 
-static float off = 2.19;
+static float off = 0.4;//2.19; //eye offset
 static float offDir = .1;
 
 bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
