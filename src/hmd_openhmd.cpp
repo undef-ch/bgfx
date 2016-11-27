@@ -71,9 +71,29 @@ void bgfx::VRImplOpenHMD::connect(bgfx::VRDesc *_desc){
 
 	_desc->m_refreshRate = 90;
 
+	// sane defaults
+	_desc->m_deviceSize.m_w = 2160;
+	_desc->m_deviceSize.m_h = 1200;
+	//_desc->m_deviceType     = 0;
+	_desc->m_refreshRate    = 90.0f;
+	_desc->m_neckOffset[0]  = 0.0805f;
+	_desc->m_neckOffset[1]  = 0.075f;
+
 	for (int eye = 0; eye < 2; ++eye)
 	{
-		_desc->m_eyeSize[eye].m_w = ivals[0]/2.f;//screenSizeX/2.f;
+		_desc->m_eyeFov[eye].m_up   = 1.32928634f;
+		_desc->m_eyeFov[eye].m_down = 1.32928634f;
+	}
+
+	_desc->m_eyeFov[0].m_left  = 1.05865765f;
+	_desc->m_eyeFov[0].m_right = 1.09236801f;
+	_desc->m_eyeFov[1].m_left  = 1.09236801f;
+	_desc->m_eyeFov[1].m_right = 1.05865765f;
+
+	// from library
+	for (int eye = 0; eye < 2; ++eye)
+	{
+		_desc->m_eyeSize[eye].m_w = ivals[0]/2;//screenSizeX/2.f;
 		_desc->m_eyeSize[eye].m_h = ivals[1];//screenSizeY;
 		if(eye == 0){
 			 //ohmd_device_getf(device, OHMD_LEFT_EYE_FOV, &_desc->m_eyeFov[eye][0]);
@@ -94,6 +114,9 @@ bool bgfx::VRImplOpenHMD::isConnected() const
 	return true;
 }
 
+static float off = 2.19;
+static float offDir = .1;
+
 bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
 	if(device == nullptr)
 		return false;
@@ -107,6 +130,18 @@ bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
 	float quat[4];
 	ohmd_device_getf(device, OHMD_ROTATION_QUAT, quat);
 
+	//printf("%f - %f \n", _hmd.eye[0].viewOffset[1], _hmd.eye[1].viewOffset[1]);
+
+//	off+=offDir;
+//	if(off>50||off<-50){
+//		offDir*=-1;
+//	}
+
+	//printf("%f\n", off);
+
+	_hmd.eye[0].viewOffset[0] = off;
+	_hmd.eye[1].viewOffset[0] = -off;
+
 	// invert quat
 	quat[0] = quat[0];
 	quat[1] = quat[1];
@@ -116,7 +151,6 @@ bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
 	for (int eye = 0; eye < 2; ++eye){
 
 		HMD::Eye& hmdEye = _hmd.eye[eye];
-
 
 
 		hmdEye.rotation[0] = quat[0];

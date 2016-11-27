@@ -1411,6 +1411,8 @@ private:
 	GLuint m_depthRbo;
 	GLuint m_msaaTexture;
 	GLuint m_msaaTarget;
+	GLuint m_msaaTarget2;
+	GLuint m_msaaTexture2;
 	GLuint m_fbo;
 	GLuint texID;
 	GLuint m_colorBuffer, m_depthBuffer;
@@ -3827,11 +3829,12 @@ bool VRImplOVRGL::submitSwapChain(const VRDesc& _desc)
 #if BGFX_CONFIG_USE_OPEN_HMD
 
 
-GLuint CompileShaders(const char * vCode, const char * fragCode){
+GLuint CompileShaders(const char * vCode, const char * fragCode, const char* geomCode=nullptr){
 
 	// Create the shaders
 	GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+	GLuint GeomShaderID = 0;
 
 	GLint Result = GL_FALSE;
 	GLint InfoLogLength;
@@ -3849,6 +3852,7 @@ GLuint CompileShaders(const char * vCode, const char * fragCode){
 		printf("%s\n", log);
 	}
 
+	// Compile Fragment Shader
 	glShaderSource(FragmentShaderID, 1, &fragCode , NULL);
 	glCompileShader(FragmentShaderID);
 
@@ -3860,6 +3864,21 @@ GLuint CompileShaders(const char * vCode, const char * fragCode){
 		printf("%s\n", log);
 	}
 
+	// Compile Geometry Shader
+	if(geomCode != nullptr){
+		GeomShaderID = glCreateShader(GL_GEOMETRY_SHADER);
+
+		glShaderSource(GeomShaderID, 1, &geomCode , NULL);
+		glCompileShader(GeomShaderID);
+
+		// Check Fragment Shader
+		glGetShaderiv(GeomShaderID, GL_COMPILE_STATUS, &Result);
+		glGetShaderiv(GeomShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if ( InfoLogLength > 0 ){
+			glGetShaderInfoLog(GeomShaderID, 4096, &InfoLogLength, log);
+			printf("%s\n", log);
+		}
+	}
 
 
 	// Link the program
@@ -3867,6 +3886,10 @@ GLuint CompileShaders(const char * vCode, const char * fragCode){
 	GLuint ProgramID = glCreateProgram();
 	glAttachShader(ProgramID, VertexShaderID);
 	glAttachShader(ProgramID, FragmentShaderID);
+
+	if(geomCode != nullptr)
+		glAttachShader(ProgramID, GeomShaderID);
+
 	glLinkProgram(ProgramID);
 
 	// Check the program
@@ -3905,6 +3928,7 @@ static void setDefaultSamplerState()
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE) );
 }
 
+/*
 static const char* vrImplOpenHMDVert = R"(
 									   #version 330
 
@@ -3963,57 +3987,187 @@ static const char* vrImplOpenHMDFrag = R"(
 											   return;
 											}
 
-											//tc.x = UV.x < 1080 ? (2.0 * tc.x) : (2.0 * (tc.x - 0.5));
 											color =  texture2D( renderedTexture, tc).xyz;
 									   }
+									   )";
+*/
+
+static const char* vrImplOpenHMDVert = R"(
+									   #version 150
+
+									   void main(){
+
+									   }
+
+									   )";
+
+static const char* vrImplOpenHMDGeom = R"(
+
+									   #version 150
+
+									   layout(points) in;
+									   layout(triangle_strip, max_vertices = 8) out;
+
+									   out vec2 _thetaCoords;
+									   invariant out vec4 _ScreenRect;
+									   invariant out vec2 _LensCenter;
+									   invariant out vec2 _Scale;
+
+									   uniform float DistortionOffset = 0; //0.151976;
+									   uniform vec2 Scale = vec2(0.25,0.5);
+									   uniform float DistortionScale = 1;
+
+
+									   void emitQuad(vec4 screen, vec4 coords)
+									   {
+									   /*
+										   screen is a rect describing the screen space coordinates
+											   of the rectangle to be emitted. screen.xy is the bottom left
+											   corner, and screen.zw is the upper right corner.
+
+										   coords is a rect describing the texture coordinates to be emitted
+											   with coords.xy describing the bottom left corner and coords.zw
+											   describing the upper right corner
+
+									   */
+										   gl_Position = vec4(screen.z, screen.w, 0.0, 1.0 );
+										   _thetaCoords = vec2( coords.z, coords.w);
+										   EmitVertex();
+
+										   gl_Position = vec4(screen.x, screen.w, 0.0, 1.0 );
+										   _thetaCoords = vec2( coords.x, coords.w );
+										   EmitVertex();
+
+										   gl_Position = vec4(screen.z,screen.y, 0.0, 1.0 );
+										   _thetaCoords = vec2( coords.z, coords.y );
+										   EmitVertex();
+
+										   gl_Position = vec4(screen.x,screen.y, 0.0, 1.0 );
+										   _thetaCoords = vec2( coords.x, coords.y );
+										   EmitVertex();
+
+										   EndPrimitive();
+									   }
+
+									   // apply scaling factors and build a rectangle
+									   vec4 displacedRect( vec2 center)
+									   {
+										   vec4 result;
+										   result.xy = (vec2(-1.0,1.0)  - center);
+										   result.zw = (vec2(1.0,-1.0)  - center);
+										   return result;
+									   }
+
+									   vec4 screenRect(vec2 center)
+									   {
+										   vec4 result;
+										   result.xy = center - vec2(0.25,0.5);
+										   result.zw = center + vec2(0.25,0.5);
+										   return result;
+									   }
+
+									   void main()
+									   {
+										   _Scale = Scale / DistortionScale;
+										   vec4 texRect;
+
+										   /* left eye */
+										   _ScreenRect = screenRect(vec2(0.25,0.5));
+										   _LensCenter = vec2(0.25 + DistortionOffset * 0.25, 0.5);
+										   texRect = displacedRect(vec2(DistortionOffset,0.0));
+
+										   emitQuad(vec4(-1.0,-1.0,0.0,1.0),texRect);
+
+										   /* right eye */
+										   _ScreenRect = screenRect(vec2(0.75,0.5));
+										   _LensCenter = vec2(0.75 - DistortionOffset * 0.25, 0.5);
+										   texRect = displacedRect(vec2(-DistortionOffset,0.0));
+
+										   emitQuad(vec4(0.0,-1.0,1.0,1.0),texRect);
+
+									   }
+
+									   )";
+
+static const char* vrImplOpenHMDFrag = R"(
+
+									   #version 150
+
+									   uniform sampler2D renderedTexture; //Image to be projected
+									   uniform vec4 HmdWarpParam = vec4(1.0,0.22,0.24,0.0);//vec4(1.0,0.22,0.24,0.0);
+									   uniform vec4 ChromAbParam = vec4(0.996000, -0.004000, 1.014000,0.000000);
+									   invariant in vec4 _ScreenRect;
+									   invariant in vec2 _LensCenter;
+									   invariant in vec2 _Scale;
+									   in vec2 _thetaCoords;
+
+									   //layout(location = 0) out vec4 outColor; // GLSL 3.30 or higher only
+
+									   out vec4 outColor; // GLSL 1.50 or higher
+
+									   void main(void)
+									   {
+										   // scale the texture coordinates for better noise
+										   vec2 theta = _thetaCoords;
+										   float rSq= theta.x * theta.x + theta.y * theta.y;
+										   vec2 theta1 = theta * (HmdWarpParam.x + HmdWarpParam.y * rSq +
+																   HmdWarpParam.z * rSq * rSq + HmdWarpParam.w * rSq * rSq * rSq);
+
+										   // Detect whether blue texture coordinates are out of range since these will scaled out the furthest.
+										   vec2 thetaBlue = theta1 * (ChromAbParam.z + ChromAbParam.w * rSq);
+										   vec2 tcBlue = _LensCenter + _Scale * thetaBlue;
+										   tcBlue.y = 1 - tcBlue.y;
+										   if (!all(equal(clamp(tcBlue, _ScreenRect.xy, _ScreenRect.zw), tcBlue)))
+										   {
+											   outColor = vec4(0);
+											   return;
+										   }
+
+										   // Now do blue texture lookup.
+
+										   float blue = texture2D(renderedTexture, tcBlue).b;
+
+										   // Do green lookup (no scaling).
+										   vec2  tcGreen = _LensCenter + _Scale * theta1;
+										   tcGreen.y = 1 - tcGreen.y;
+
+										   vec4  center = texture2D(renderedTexture, tcGreen);
+
+										   // Do red scale and lookup.
+										   vec2  thetaRed = theta1 * (ChromAbParam.x + ChromAbParam.y * rSq);
+										   vec2  tcRed = _LensCenter + _Scale * thetaRed;
+										   tcRed.y = 1 - tcRed.y;
+										   float red = texture2D(renderedTexture, tcRed).r;
+
+										   outColor = vec4(red, center.g, blue, center.a);
+									   }
+
 									   )";
 
 bool VRImplOpenHMDGL::createSwapChain(const VRDesc& _desc, int _msaaSamples, int _mirrorWidth, int _mirrorHeight)
 {
-	const GLsizei width = _desc.m_eyeSize[0].m_w + _desc.m_eyeSize[1].m_w;
-	const GLsizei height = bx::uint16_max(_desc.m_eyeSize[0].m_h, _desc.m_eyeSize[1].m_h);
+	GLsizei width = _desc.m_eyeSize[0].m_w + _desc.m_eyeSize[1].m_w;
+	GLsizei height = bx::uint16_max(_desc.m_eyeSize[0].m_h, _desc.m_eyeSize[1].m_h);
 
-
-	shader = CompileShaders(vrImplOpenHMDVert, vrImplOpenHMDFrag);
-	glUseProgram(shader);
-	texID = glGetUniformLocation(shader, "renderedTexture");
-	glUseProgram(0);
-
-	// The fullscreen quad's FBO
-	glGenVertexArrays(1, &quad_VertexArrayID);
-	glBindVertexArray(quad_VertexArrayID);
-
-	static const GLfloat g_quad_vertex_buffer_data[] = {
-		-1.0f, -1.0f, 0.0f,
-		1.0f, -1.0f, 0.0f,
-		-1.0f,  1.0f, 0.0f,
-		-1.0f,  1.0f, 0.0f,
-		1.0f, -1.0f, 0.0f,
-		1.0f,  1.0f, 0.0f,
-	};
-
-	glGenBuffers(1, &quad_vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
-
+	shader = CompileShaders(vrImplOpenHMDVert, vrImplOpenHMDFrag, vrImplOpenHMDGeom);
 
 	//////// STEP 1 MULTISAMPLER
 
 	// create multisampler texture
 	GL_CHECK(glGenTextures(1, &m_msaaTexture) );
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture) );
-	GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples, GL_RGBA, width, height, GL_TRUE) );
+	GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples/2, GL_RGBA, width, height, GL_TRUE) );
 
 	// Create and bind the FBO
 	GL_CHECK(glGenFramebuffers(1, &m_msaaTarget) );
 	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_msaaTarget) );
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_RGBA8, width, height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples/2, GL_RGBA8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_msaaTarget);
 
 	// Create depth render buffer (This is optional)
 	glGenRenderbuffers(1, &m_depthRbo);
 	glBindRenderbuffer(GL_RENDERBUFFER, m_depthRbo);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_DEPTH24_STENCIL8, width, height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples/2, GL_DEPTH24_STENCIL8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
 
@@ -4058,6 +4212,33 @@ bool VRImplOpenHMDGL::createSwapChain(const VRDesc& _desc, int _msaaSamples, int
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
+
+	// STEP 3 final MSAA framebuffer
+	GL_CHECK(glGenTextures(1, &m_msaaTexture2) );
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture2) );
+	GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples, GL_RGBA, width, height, GL_TRUE) );
+
+	// Create and bind the FBO
+	GL_CHECK(glGenFramebuffers(1, &m_msaaTarget2) );
+	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_msaaTarget2) );
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_RGBA8, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_msaaTarget2);
+
+//	// Create depth render buffer (This is optional)
+//	glGenRenderbuffers(1, &m_depthRbo);
+//	glBindRenderbuffer(GL_RENDERBUFFER, m_depthRbo);
+//	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_DEPTH24_STENCIL8, width, height);
+//	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
+//	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture2, 0);
+
+	//setDefaultSamplerState();
+	glEnable(GL_MULTISAMPLE);
+
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0) );
+
+
 	return true;
 }
 
@@ -4078,8 +4259,9 @@ void VRImplOpenHMDGL::makeRenderTargetActive(const VRDesc& /*_desc*/)
 
 bool VRImplOpenHMDGL::submitSwapChain(const VRDesc& _desc)
 {
-	const uint32_t width = _desc.m_eyeSize[0].m_w+_desc.m_eyeSize[1].m_w;
-	const uint32_t height = _desc.m_eyeSize[0].m_h;
+	uint32_t width = _desc.m_eyeSize[0].m_w+_desc.m_eyeSize[1].m_w;
+	uint32_t height = _desc.m_eyeSize[0].m_h;
+
 
 	// downsample msaa to 2d texture
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_msaaTarget);
@@ -4094,6 +4276,9 @@ bool VRImplOpenHMDGL::submitSwapChain(const VRDesc& _desc)
 //	glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 //	return true;
 
+	// bind msaa target 2
+	 glBindFramebuffer(GL_FRAMEBUFFER, m_msaaTarget2);
+
 	// render 2d texture on a quad
 	glViewport(0,0,width,height);
 
@@ -4103,29 +4288,19 @@ bool VRImplOpenHMDGL::submitSwapChain(const VRDesc& _desc)
 	glUseProgram(shader);
 
 	glBindTexture(GL_TEXTURE_2D, m_texture);
-	glUniform1i(texID, 0);
+	//glUniform1i(texID, 0);
 
-//	float aniso = 0.0f;
-//	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &aniso);
-//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso);
+	auto tLoc =  glGetUniformLocation(shader,"Texture");
+	glUniform1i(tLoc, 0);
 
+	glDrawArrays(GL_POINTS, 0, 1);
 
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glLinkProgram(0);
 
-	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-	glVertexAttribPointer(
-				0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-				3,                  // size
-				GL_FLOAT,           // type
-				GL_FALSE,           // normalized?
-				0,                  // stride
-				(void*)0            // array buffer offset
-				);
-
-	// Draw the triangles !
-	glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-	glDisableVertexAttribArray(0);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_msaaTarget2);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 	return true;
 }
