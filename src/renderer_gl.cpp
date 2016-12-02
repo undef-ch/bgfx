@@ -4013,9 +4013,9 @@ static const char* vrImplOpenHMDGeom = R"(
 									   invariant out vec2 _LensCenter;
 									   invariant out vec2 _Scale;
 
-									   uniform float DistortionOffset = 0; //0.151976;
+									   uniform float DistortionOffset = 0; //-0.151976;
 									   uniform vec2 Scale = vec2(0.25,0.5);
-									   uniform float DistortionScale = 1;
+									   uniform float DistortionScale = 1; //.17;
 
 
 									   void emitQuad(vec4 screen, vec4 coords)
@@ -4094,7 +4094,7 @@ static const char* vrImplOpenHMDFrag = R"(
 									   #version 150
 
 									   uniform sampler2D renderedTexture; //Image to be projected
-									   uniform vec4 HmdWarpParam = vec4(1.0,0.22,0.24,0.0);//vec4(1.0,0.22,0.24,0.0);
+									   uniform vec4 HmdWarpParam = vec4(.9,0.1,0.11,0.0);//vec4(1.0,0.22,0.24,0.0);
 									   uniform vec4 ChromAbParam = vec4(0.996000, -0.004000, 1.014000,0.000000);
 									   invariant in vec4 _ScreenRect;
 									   invariant in vec2 _LensCenter;
