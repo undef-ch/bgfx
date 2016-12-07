@@ -114,7 +114,7 @@ bool bgfx::VRImplOpenHMD::isConnected() const
 	return true;
 }
 
-static float off = .5; //2.19;
+static float off = .4; //2.19;
 static float offDir = .1;
 
 bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
