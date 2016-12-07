@@ -4015,7 +4015,7 @@ static const char* vrImplOpenHMDGeom = R"(
 
 									   uniform float DistortionOffset = 0; //-0.151976;
 									   uniform vec2 Scale = vec2(0.25,0.5);
-									   uniform float DistortionScale = 1; //.17;
+									   uniform float DistortionScale = 1.23; //.17;
 
 
 									   void emitQuad(vec4 screen, vec4 coords)
@@ -4094,7 +4094,7 @@ static const char* vrImplOpenHMDFrag = R"(
 									   #version 150
 
 									   uniform sampler2D renderedTexture; //Image to be projected
-									   uniform vec4 HmdWarpParam = vec4(.9,0.1,0.11,0.0);//vec4(1.0,0.22,0.24,0.0);
+									   uniform vec4 HmdWarpParam = vec4(1.,0.12,0.18,0.0);//vec4(1.0,0.22,0.24,0.0);
 									   uniform vec4 ChromAbParam = vec4(0.996000, -0.004000, 1.014000,0.000000);
 									   invariant in vec4 _ScreenRect;
 									   invariant in vec2 _LensCenter;
@@ -4156,18 +4156,18 @@ bool VRImplOpenHMDGL::createSwapChain(const VRDesc& _desc, int _msaaSamples, int
 	// create multisampler texture
 	GL_CHECK(glGenTextures(1, &m_msaaTexture) );
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_msaaTexture) );
-	GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples/2, GL_RGBA, width, height, GL_TRUE) );
+	GL_CHECK(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, _msaaSamples, GL_RGBA, width, height, GL_TRUE) );
 
 	// Create and bind the FBO
 	GL_CHECK(glGenFramebuffers(1, &m_msaaTarget) );
 	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_msaaTarget) );
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples/2, GL_RGBA8, width, height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_RGBA8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_msaaTarget);
 
 	// Create depth render buffer (This is optional)
 	glGenRenderbuffers(1, &m_depthRbo);
 	glBindRenderbuffer(GL_RENDERBUFFER, m_depthRbo);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples/2, GL_DEPTH24_STENCIL8, width, height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, _msaaSamples, GL_DEPTH24_STENCIL8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthRbo);
 
