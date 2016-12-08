@@ -4013,9 +4013,11 @@ static const char* vrImplOpenHMDGeom = R"(
 									   invariant out vec2 _LensCenter;
 									   invariant out vec2 _Scale;
 
-									   uniform float DistortionOffset = 0; //-0.151976;
+
+									   uniform float DistortionOffsetLeft =  -0.045;//0; //-0.151976;
+									   uniform float DistortionOffsetRight = -0.045;//0; //-0.151976;
 									   uniform vec2 Scale = vec2(0.25,0.5);
-									   uniform float DistortionScale = 1.23; //.17;
+									   uniform float DistortionScale = 1.24; //.17;
 
 
 									   void emitQuad(vec4 screen, vec4 coords)
@@ -4073,15 +4075,15 @@ static const char* vrImplOpenHMDGeom = R"(
 
 										   /* left eye */
 										   _ScreenRect = screenRect(vec2(0.25,0.5));
-										   _LensCenter = vec2(0.25 + DistortionOffset * 0.25, 0.5);
-										   texRect = displacedRect(vec2(DistortionOffset,0.0));
+										   _LensCenter = vec2(0.25 + DistortionOffsetLeft * 0.25, 0.5);
+										   texRect = displacedRect(vec2(DistortionOffsetLeft+0.02,0.0));
 
 										   emitQuad(vec4(-1.0,-1.0,0.0,1.0),texRect);
 
 										   /* right eye */
 										   _ScreenRect = screenRect(vec2(0.75,0.5));
-										   _LensCenter = vec2(0.75 - DistortionOffset * 0.25, 0.5);
-										   texRect = displacedRect(vec2(-DistortionOffset,0.0));
+										   _LensCenter = vec2(0.75 - DistortionOffsetRight * 0.25, 0.5);
+										   texRect = displacedRect(vec2(-DistortionOffsetRight-0.08,0.0));
 
 										   emitQuad(vec4(0.0,-1.0,1.0,1.0),texRect);
 

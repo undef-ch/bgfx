@@ -52,15 +52,15 @@ void bgfx::VRImplOpenHMD::connect(bgfx::VRDesc *_desc){
 	ohmd_device_geti(device, OHMD_SCREEN_VERTICAL_RESOLUTION, ivals + 1);
 	printf("resolution:         %i x %i\n", ivals[0], ivals[1]);
 
-//	print_infof(device, "hsize:",            1, OHMD_SCREEN_HORIZONTAL_SIZE);
-//	print_infof(device, "vsize:",            1, OHMD_SCREEN_VERTICAL_SIZE);
-//	print_infof(device, "lens separation:",  1, OHMD_LENS_HORIZONTAL_SEPARATION);
-//	print_infof(device, "lens vcenter:",     1, OHMD_LENS_VERTICAL_POSITION);
-//	print_infof(device, "left eye fov:",     1, OHMD_LEFT_EYE_FOV);
-//	print_infof(device, "right eye fov:",    1, OHMD_RIGHT_EYE_FOV);
-//	print_infof(device, "left eye aspect:",  1, OHMD_LEFT_EYE_ASPECT_RATIO);
-//	print_infof(device, "right eye aspect:", 1, OHMD_RIGHT_EYE_ASPECT_RATIO);
-//	print_infof(device, "distortion k:", 6, OHMD_DISTORTION_K);
+	print_infof(device, "hsize:",            1, OHMD_SCREEN_HORIZONTAL_SIZE);
+	print_infof(device, "vsize:",            1, OHMD_SCREEN_VERTICAL_SIZE);
+	print_infof(device, "lens separation:",  1, OHMD_LENS_HORIZONTAL_SEPARATION);
+	print_infof(device, "lens vcenter:",     1, OHMD_LENS_VERTICAL_POSITION);
+	print_infof(device, "left eye fov:",     1, OHMD_LEFT_EYE_FOV);
+	print_infof(device, "right eye fov:",    1, OHMD_RIGHT_EYE_FOV);
+	print_infof(device, "left eye aspect:",  1, OHMD_LEFT_EYE_ASPECT_RATIO);
+	print_infof(device, "right eye aspect:", 1, OHMD_RIGHT_EYE_ASPECT_RATIO);
+	print_infof(device, "distortion k:", 6, OHMD_DISTORTION_K);
 
 	float screenSizeX, screenSizeY;
 	ohmd_device_getf(device, OHMD_SCREEN_HORIZONTAL_SIZE, &screenSizeX);
@@ -114,8 +114,8 @@ bool bgfx::VRImplOpenHMD::isConnected() const
 	return true;
 }
 
-static float off = .4; //2.19;
-static float offDir = .1;
+static float off = 0.28;//.4; //2.19;
+static float offDir = .2;
 
 bool bgfx::VRImplOpenHMD::updateTracking(bgfx::HMD &_hmd){
 	if(device == nullptr)
